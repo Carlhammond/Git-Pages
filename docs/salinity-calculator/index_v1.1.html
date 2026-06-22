@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Salinity Calculator</title>
+<meta name="description" content="Reef aquarium salinity calculator: temperature-corrected specific gravity, salinity (ppt) and conductivity using the EOS-80 seawater equation of state." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ------------------------------------------------------------------ *
+   * v1.1 — "Apex Fusion" inspired dark dashboard re-skin.              *
+   * Look-and-feel taken from SampleColours.png (Neptune Systems Apex   *
+   * Fusion controller): charcoal panels, bright-orange instrument      *
+   * readouts, dark top nav bar. All calculator logic is unchanged.     *
+   * ------------------------------------------------------------------ */
+  :root {
+    --font-family: 'Open Sans', sans-serif;
+    --font-readout: 'Rajdhani', 'Open Sans', sans-serif;
+
+    /* Apex Fusion palette */
+    --color-accent: #f5821f;          /* signature Neptune orange */
+    --color-accent-hi: #ff9a3d;
+    --color-accent-dim: rgba(245, 130, 31, 0.16);
+
+    --color-bg: #212427;              /* page backdrop */
+    --color-bg-2: #1a1c1e;
+    --color-nav: #16181a;             /* top bar */
+    --color-card-bg: #2b2e31;         /* panel */
+    --color-card-bg-2: #303438;       /* nested / inputs */
+    --color-card-border: #3a3f44;
+    --color-divider: #34383c;
+
+    --color-header: #f1f3f5;          /* headings */
+    --color-text: #d4d7da;            /* body text */
+    --color-label: #b6bbc0;           /* field labels */
+    --color-input-text: #e7eaec;
+    --color-muted: #82888e;           /* hints / footer */
+    --color-subtext: #9aa0a6;
+
+    --color-error: #ff5b6b;
+
+    --color-good: #41c98a;
+    --color-good-bg: rgba(65, 201, 138, 0.14);
+    --color-warn: #f0b34a;
+    --color-warn-bg: rgba(240, 179, 74, 0.14);
+    --color-bad: #ff5b6b;
+    --color-bad-bg: rgba(255, 91, 107, 0.14);
+
+    --border-radius-card: 10px;
+    --border-radius-input: 7px;
+    --box-shadow-card: 0 8px 28px rgba(0, 0, 0, 0.38);
+
+    --container-width: 480px;
+    --submit-btn-height: 50px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      radial-gradient(1200px 480px at 50% -160px, #2c3033 0%, rgba(44,48,51,0) 70%),
+      var(--color-bg);
+    background-attachment: fixed;
+    font-family: var(--font-family);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Top nav bar — mirrors the Apex Fusion header ------------------- */
+  .topbar {
+    height: 54px;
+    background: var(--color-nav);
+    border-bottom: 1px solid #000;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 2px 10px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .brand .hex {
+    width: 26px; height: 26px;
+    display: block;
+  }
+  .brand .name {
+    font-family: var(--font-readout);
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    font-size: 18px;
+    color: var(--color-header);
+    text-transform: uppercase;
+  }
+  .brand .name b { color: var(--color-accent); font-weight: 700; }
+  .topbar .edge {
+    position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+    background: linear-gradient(90deg, rgba(245,130,31,0) 0%, var(--color-accent) 50%, rgba(245,130,31,0) 100%);
+    opacity: 0.55;
+  }
+
+  .page {
+    min-height: calc(100vh - 54px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 52px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: var(--container-width);
+    background: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-card);
+    box-shadow: var(--box-shadow-card);
+    padding: 26px;
+    margin-bottom: 18px;
+    position: relative;
+  }
+  /* thin orange rail at the top of each panel */
+  .card::before {
+    content: "";
+    position: absolute; left: 18px; right: 18px; top: 0; height: 2px;
+    background: var(--color-accent);
+    opacity: 0.85;
+    border-radius: 0 0 2px 2px;
+  }
+
+  h1 {
+    font-family: var(--font-readout);
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-header);
+    margin: 4px 0 4px;
+    text-align: center;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--color-subtext);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 22px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-label);
+    margin-bottom: 7px;
+    letter-spacing: 0.02em;
+  }
+
+  .field { margin-bottom: 18px; }
+
+  .required { color: var(--color-accent); }
+
+  input[type="number"],
+  select {
+    width: 100%;
+    font-family: var(--font-family);
+    font-size: 14px;
+    color: var(--color-input-text);
+    background: var(--color-card-bg-2);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-input);
+    padding: 12px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23f5821f' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 34px;
+  }
+  input[type="number"]::placeholder { color: #6c7176; }
+  input[type="number"]:focus,
+  select:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-dim);
+  }
+
+  .row { display: flex; gap: 12px; }
+  .row > .field { flex: 1; margin-bottom: 0; }
+  .row { margin-bottom: 18px; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--color-muted);
+    margin-top: 7px;
+    line-height: 1.5;
+  }
+
+  /* Segmented toggle ------------------------------------------------- */
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-input);
+    overflow: hidden;
+    background: var(--color-bg-2);
+  }
+  .seg button {
+    border: 0;
+    background: transparent;
+    color: var(--color-subtext);
+    font-family: var(--font-family);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .seg button + button { border-left: 1px solid var(--color-card-border); }
+  .seg button:hover { color: var(--color-text); }
+  .seg button.active {
+    background: var(--color-accent);
+    color: #1b1206;
+    font-weight: 700;
+  }
+
+  button.submit {
+    width: 100%;
+    height: var(--submit-btn-height);
+    border: 0;
+    border-radius: var(--border-radius-input);
+    background: var(--color-accent);
+    color: #1b1206;
+    font-family: var(--font-readout);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+  button.submit:hover { background: var(--color-accent-hi); box-shadow: 0 0 0 3px var(--color-accent-dim); }
+
+  .error {
+    color: var(--color-error);
+    font-size: 13px;
+    margin-top: 13px;
+    display: none;
+  }
+
+  /* Results ---------------------------------------------------------- */
+  .results { display: none; }
+
+  .result-primary {
+    text-align: center;
+    margin-bottom: 20px;
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-input);
+    padding: 18px 12px 16px;
+  }
+  .result-primary .readout-label {
+    font-family: var(--font-readout);
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-subtext);
+    margin-bottom: 4px;
+  }
+  .result-primary .big {
+    font-family: var(--font-readout);
+    font-size: 58px;
+    font-weight: 700;
+    color: var(--color-accent);
+    line-height: 1;
+    text-shadow: 0 0 22px rgba(245, 130, 31, 0.28);
+  }
+  .result-primary .unit {
+    font-family: var(--font-readout);
+    font-size: 18px;
+    color: var(--color-subtext);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .status-pill {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .status-good { background: var(--color-good-bg); color: var(--color-good); }
+  .status-warn { background: var(--color-warn-bg); color: var(--color-warn); }
+  .status-bad  { background: var(--color-bad-bg);  color: var(--color-bad); }
+
+  table.metrics {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+  }
+  table.metrics td {
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--color-divider);
+    font-size: 14px;
+  }
+  table.metrics td.k { color: var(--color-subtext); }
+  table.metrics td.v {
+    text-align: right;
+    font-weight: 600;
+    font-family: var(--font-readout);
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    color: var(--color-accent);
+  }
+  table.metrics tr:last-child td { border-bottom: 0; }
+
+  .target-note {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--color-muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .target-note strong { color: var(--color-text); }
+
+  .link-btn {
+    display: inline-block;
+    margin-top: 20px;
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .link-btn:hover { color: var(--color-accent-hi); text-decoration: underline; }
+
+  .footer {
+    max-width: var(--container-width);
+    width: 100%;
+    text-align: center;
+    font-size: 11px;
+    color: var(--color-muted);
+    line-height: 1.7;
+  }
+  .footer a { color: var(--color-subtext); }
+
+  details { margin-top: 16px; }
+  summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--color-subtext);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  summary::marker { color: var(--color-accent); }
+  details p { font-size: 12px; color: var(--color-text); line-height: 1.7; }
+  details p strong { color: var(--color-header); }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV BAR ----------------------------------------------------- -->
+<header class="topbar">
+  <div class="brand">
+    <svg class="hex" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polygon points="50,4 91,27 91,73 50,96 9,73 9,27" fill="none" stroke="#f5821f" stroke-width="7"/>
+      <path d="M36 68 L36 32 L64 68 L64 32" fill="none" stroke="#f5821f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="name">Reef<b>Salt</b></span>
+  </div>
+  <div class="edge"></div>
+</header>
+
+<div class="page">
+
+  <!-- INPUT CARD ---------------------------------------------------- -->
+  <div class="card" id="inputCard">
+    <h1>Salinity Calculator</h1>
+    <p class="subtitle">Reef-ready &middot; EOS-80 seawater model</p>
+
+    <form id="calcForm" novalidate>
+
+      <div class="field">
+        <label>Instrument</label>
+        <div class="seg" id="segInstrument" role="group" aria-label="Instrument type">
+          <button type="button" data-val="hydrometer" class="active">Hydrometer</button>
+          <button type="button" data-val="refractometer">Refractometer</button>
+        </div>
+        <div class="hint" id="instrumentHint">Glass/swing-arm hydrometer reading. Temperature correction is applied.</div>
+      </div>
+
+      <div class="field">
+        <label>Reading entered as</label>
+        <div class="seg" id="segUnit" role="group" aria-label="Reading unit">
+          <button type="button" data-val="sg" class="active">Specific Gravity</button>
+          <button type="button" data-val="ppt">ppt</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="reading">Observed reading <span class="required">*</span></label>
+        <input type="number" id="reading" inputmode="decimal" step="0.0001" placeholder="1.0264" required />
+        <div class="hint" id="readingHint">Specific gravity, e.g. 1.0264</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="temp">Observed temp <span class="required">*</span></label>
+          <input type="number" id="temp" inputmode="decimal" step="0.1" placeholder="25" required />
+        </div>
+        <div class="field" style="max-width:130px;">
+          <label>Unit</label>
+          <div class="seg" id="segTempUnit" role="group" aria-label="Temperature unit">
+            <button type="button" data-val="C" class="active">&deg;C</button>
+            <button type="button" data-val="F">&deg;F</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field" id="calibField">
+        <label for="calib">Instrument calibration temp</label>
+        <select id="calib">
+          <option value="25" selected>25 &deg;C / 77 &deg;F (most reef hydrometers)</option>
+          <option value="20">20 &deg;C / 68 &deg;F</option>
+          <option value="15.56">15.56 &deg;C / 60 &deg;F (60/60 spec.)</option>
+        </select>
+        <div class="hint">Check the label on your hydrometer. When unsure, 25&nbsp;&deg;C is the reef standard.</div>
+      </div>
+
+      <button type="submit" class="submit">Calculate</button>
+      <div class="error" id="error"></div>
+    </form>
+  </div>
+
+  <!-- RESULTS CARD -------------------------------------------------- -->
+  <div class="card results" id="resultsCard">
+    <h1>Calculated Salinity</h1>
+
+    <div class="result-primary">
+      <div class="readout-label">Salt</div>
+      <div><span class="big" id="rPpt">35.0</span> <span class="unit">ppt</span></div>
+      <div class="status-pill" id="statusPill">On target</div>
+    </div>
+
+    <table class="metrics">
+      <tr><td class="k">Salinity (practical, PSU/ppt)</td><td class="v" id="mPpt">35.0</td></tr>
+      <tr><td class="k">Specific gravity @ 25&nbsp;&deg;C</td><td class="v" id="mSg">1.0264</td></tr>
+      <tr><td class="k">Conductivity @ 25&nbsp;&deg;C (approx.)</td><td class="v" id="mCond">53.0 mS/cm</td></tr>
+      <tr><td class="k">Density @ 25&nbsp;&deg;C</td><td class="v" id="mDens">1.0233 g/cm&sup3;</td></tr>
+      <tr><td class="k">Your reading (as entered)</td><td class="v" id="mRaw">1.0264 SG @ 25&nbsp;&deg;C</td></tr>
+    </table>
+
+    <div class="target-note" id="targetNote">
+      Reef target: <strong>35&nbsp;ppt</strong> &middot; SG&nbsp;<strong>1.0264</strong> &middot; ~53&nbsp;mS/cm @ 25&nbsp;&deg;C
+    </div>
+
+    <details>
+      <summary>How is this calculated?</summary>
+      <p>
+        The reading is converted to an absolute water density, temperature-corrected
+        using the density of pure water at your instrument's calibration temperature,
+        then salinity is solved from the <strong>EOS-80 (UNESCO 1981)</strong> seawater
+        equation of state &mdash; the same model oceanographers use. Specific gravity is
+        reported on the 25&nbsp;&deg;C/25&nbsp;&deg;C basis used throughout the reef hobby
+        (35&nbsp;ppt&nbsp;=&nbsp;SG&nbsp;1.0264). Conductivity is an approximation valid
+        near natural-seawater strength.
+      </p>
+    </details>
+
+    <span class="link-btn" id="resetBtn">&larr; Calculate another</span>
+  </div>
+
+  <div class="footer">
+    We accept no responsibility should you choose to use this tool.<br />
+    For aquarium guidance only &mdash; not for laboratory use.
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ====================================================================
+ * EOS-80 / UNESCO 1981 seawater equation of state
+ * Density is in kg/m^3, temperature in degrees Celsius, p = 0 dbar.
+ * ==================================================================== */
+
+// Density of pure (salinity-free) water at temperature T (deg C).
+function rhoPureWater(T) {
+  return 999.842594
+    + 6.793952e-2  * T
+    - 9.095290e-3  * T**2
+    + 1.001685e-4  * T**3
+    - 1.120083e-6  * T**4
+    + 6.536332e-9  * T**5;
+}
+
+// Salinity coefficients of the one-atmosphere International Equation of State.
+function coeffA(T) {
+  return 0.824493
+    - 4.0899e-3 * T
+    + 7.6438e-5 * T**2
+    - 8.2467e-7 * T**3
+    + 5.3875e-9 * T**4;
+}
+function coeffB(T) {
+  return -5.72466e-3
+    + 1.0227e-4 * T
+    - 1.6546e-6 * T**2;
+}
+const COEFF_C = 4.8314e-4;
+
+// Forward model: density of seawater of salinity S (ppt) at temperature T.
+function rhoSeawater(S, T) {
+  const sqrtS = Math.sqrt(Math.max(S, 0));
+  return rhoPureWater(T) + coeffA(T) * S + coeffB(T) * S * sqrtS + COEFF_C * S * S;
+}
+
+// Inverse model: solve salinity (ppt) from a target density at temperature T.
+// Newton-Raphson on the EOS-80 forward model.
+function salinityFromDensity(rhoTarget, T) {
+  const rhow = rhoPureWater(T);
+  const A = coeffA(T), B = coeffB(T), C = COEFF_C;
+
+  // First guess: ignore the higher-order terms.
+  let S = Math.max(0, (rhoTarget - rhow) / Math.max(A, 1e-9));
+
+  for (let i = 0; i < 30; i++) {
+    const sqrtS = Math.sqrt(Math.max(S, 0));
+    const f  = (rhow + A * S + B * S * sqrtS + C * S * S) - rhoTarget;
+    const df = A + 1.5 * B * sqrtS + 2 * C * S;
+    const step = f / Math.max(df, 1e-12);
+    S -= step;
+    if (!isFinite(S) || S < 0) S = 0;
+    if (Math.abs(step) < 1e-7) break;
+  }
+  return S;
+}
+
+/* --------------------------------------------------------------------
+ * Conductivity (mS/cm at 25 deg C) from practical salinity.
+ * Local polynomial fit to PSS-78, accurate to a few hundredths of a
+ * mS/cm across the reef-relevant 20-40 ppt band. Clearly labelled as
+ * an approximation in the UI.
+ * ------------------------------------------------------------------ */
+function conductivityAt25(S) {
+  // 3-point quadratic fit to standard seawater conductivity at 25 deg C:
+  //   S=30 -> 46.1,  S=35 -> 53.1,  S=40 -> 60.0 mS/cm.
+  // Accurate to a few hundredths across the reef band; do not use far from it.
+  return -0.002 * S * S + 1.53 * S + 2.0;
+}
+
+/* ====================================================================
+ * Reef targets
+ * ==================================================================== */
+const REEF_TARGET_PPT = 35.0;          // natural seawater
+const REEF_OK_LOW = 33.0, REEF_OK_HIGH = 36.0;   // comfortable reef band
+const REEF_WARN_LOW = 30.0, REEF_WARN_HIGH = 38.0;
+
+/* ====================================================================
+ * UI state + wiring
+ * ==================================================================== */
+const state = {
+  instrument: "hydrometer", // hydrometer | refractometer
+  unit: "sg",               // sg | ppt
+  tempUnit: "C",            // C | F
+};
+
+function wireSegment(groupId, key, onChange) {
+  const group = document.getElementById(groupId);
+  group.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      group.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      state[key] = btn.dataset.val;
+      if (onChange) onChange();
+    });
+  });
+}
+
+function refreshHints() {
+  const readingHint = document.getElementById("readingHint");
+  const reading = document.getElementById("reading");
+  if (state.unit === "sg") {
+    readingHint.textContent = "Specific gravity, e.g. 1.0264";
+    reading.placeholder = "1.0264";
+    reading.step = "0.0001";
+  } else {
+    readingHint.textContent = "Salinity in parts per thousand, e.g. 35";
+    reading.placeholder = "35";
+    reading.step = "0.1";
+  }
+
+  const instrumentHint = document.getElementById("instrumentHint");
+  const calibField = document.getElementById("calibField");
+  if (state.instrument === "hydrometer") {
+    instrumentHint.textContent = "Glass/swing-arm hydrometer reading. Temperature correction is applied.";
+    calibField.style.display = "";
+  } else {
+    instrumentHint.textContent = "Optical refractometers are assumed temperature-compensated (ATC) and read true salinity directly.";
+    calibField.style.display = "none";
+  }
+}
+
+wireSegment("segInstrument", "instrument", refreshHints);
+wireSegment("segUnit", "unit", refreshHints);
+wireSegment("segTempUnit", "tempUnit");
+
+/* ====================================================================
+ * Core calculation
+ * ==================================================================== */
+function calculate() {
+  const errEl = document.getElementById("error");
+  errEl.style.display = "none";
+
+  const rawReading = parseFloat(String(document.getElementById("reading").value).replace(",", "."));
+  let tempVal = parseFloat(String(document.getElementById("temp").value).replace(",", "."));
+
+  // --- validate -----------------------------------------------------
+  if (!isFinite(rawReading)) return fail("Please enter a valid reading.");
+  if (!isFinite(tempVal))    return fail("Please enter a valid temperature.");
+
+  // Normalise temperature to deg C.
+  let T_s = state.tempUnit === "F" ? (tempVal - 32) * 5 / 9 : tempVal;
+  if (T_s < -2 || T_s > 45) return fail("Temperature looks out of range (expect roughly 0-40 °C).");
+
+  // Normalise the reading into "observed specific gravity".
+  // For a ppt entry we treat it as true salinity directly.
+  let observedSalinity = null;
+  let observedSG = null;
+
+  if (state.unit === "ppt") {
+    if (rawReading < 0 || rawReading > 60) return fail("Salinity in ppt looks out of range (expect ~0-45).");
+    observedSalinity = rawReading;            // taken as true salinity
+  } else {
+    if (rawReading < 0.99 || rawReading > 1.10) return fail("Specific gravity looks out of range (expect ~1.000-1.080).");
+    observedSG = rawReading;
+  }
+
+  const T_c = parseFloat(document.getElementById("calib").value) || 25; // calibration temp (deg C)
+
+  // --- derive true salinity ----------------------------------------
+  let salinity;
+
+  if (observedSalinity !== null) {
+    // Reading already in ppt -> treat as salinity (instrument ATC handled it).
+    salinity = observedSalinity;
+  } else if (state.instrument === "refractometer") {
+    // Refractometer in SG: assumed temperature-compensated. Convert SG(25/25)
+    // straight to salinity at the 25 deg C reference.
+    const rhoTarget = observedSG * rhoPureWater(25);
+    salinity = salinityFromDensity(rhoTarget, 25);
+  } else {
+    // Hydrometer: the reading x pure-water density at the CALIBRATION temp
+    // gives the sample's true absolute density. Solve salinity from EOS-80
+    // at the SAMPLE temperature. This is the proper temperature correction.
+    const rhoSample = observedSG * rhoPureWater(T_c);
+    salinity = salinityFromDensity(rhoSample, T_s);
+  }
+
+  if (!isFinite(salinity) || salinity < 0) return fail("Could not compute salinity from those inputs.");
+
+  // --- derived/reported quantities (all on the 25 deg C basis) ------
+  const rho25 = rhoSeawater(salinity, 25);          // kg/m^3
+  const sg25 = rho25 / rhoPureWater(25);            // 25/25 specific gravity
+  const cond = conductivityAt25(salinity);          // mS/cm (approx)
+
+  render({
+    salinity,
+    sg25,
+    cond,
+    density: rho25 / 1000,                           // g/cm^3
+    T_s,
+    observedSG,
+    observedSalinity,
+  });
+
+  function fail(msg) { errEl.textContent = msg; errEl.style.display = "block"; return null; }
+}
+
+/* ====================================================================
+ * Rendering
+ * ==================================================================== */
+function fmtTemp(c) {
+  if (state.tempUnit === "F") return (c * 9 / 5 + 32).toFixed(1) + " °F";
+  return c.toFixed(1) + " °C";
+}
+
+function render(r) {
+  document.getElementById("rPpt").textContent = r.salinity.toFixed(1);
+  document.getElementById("mPpt").textContent = r.salinity.toFixed(1) + " ppt";
+  document.getElementById("mSg").textContent  = r.sg25.toFixed(4);
+  document.getElementById("mCond").textContent = r.cond.toFixed(1) + " mS/cm";
+  document.getElementById("mDens").textContent = r.density.toFixed(4) + " g/cm³";
+
+  let rawTxt;
+  if (r.observedSalinity !== null) {
+    rawTxt = r.observedSalinity.toFixed(1) + " ppt @ " + fmtTemp(r.T_s);
+  } else {
+    rawTxt = r.observedSG.toFixed(4) + " SG @ " + fmtTemp(r.T_s);
+  }
+  document.getElementById("mRaw").textContent = rawTxt;
+
+  // Status pill -----------------------------------------------------
+  const pill = document.getElementById("statusPill");
+  const s = r.salinity;
+  pill.classList.remove("status-good", "status-warn", "status-bad");
+  if (s >= REEF_OK_LOW && s <= REEF_OK_HIGH) {
+    pill.classList.add("status-good");
+    pill.textContent = "In reef range";
+  } else if (s >= REEF_WARN_LOW && s <= REEF_WARN_HIGH) {
+    pill.classList.add("status-warn");
+    pill.textContent = (s < REEF_TARGET_PPT ? "Slightly low" : "Slightly high") +
+      " (" + (s - REEF_TARGET_PPT > 0 ? "+" : "") + (s - REEF_TARGET_PPT).toFixed(1) + " ppt)";
+  } else {
+    pill.classList.add("status-bad");
+    pill.textContent = (s < REEF_TARGET_PPT ? "Too low" : "Too high") +
+      " for reef (" + (s - REEF_TARGET_PPT > 0 ? "+" : "") + (s - REEF_TARGET_PPT).toFixed(1) + " ppt)";
+  }
+
+  document.getElementById("inputCard").style.display = "none";
+  const rc = document.getElementById("resultsCard");
+  rc.style.display = "block";
+  rc.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ====================================================================
+ * Events
+ * ==================================================================== */
+document.getElementById("calcForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  calculate();
+});
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  document.getElementById("resultsCard").style.display = "none";
+  document.getElementById("inputCard").style.display = "block";
+  document.getElementById("inputCard").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+refreshHints();
+
+/* ====================================================================
+ * Tiny self-test (open the browser console to see it).
+ *   35 ppt @ 25 C  -> SG ~1.0264   (reef hobby reference value)
+ *   pure water     -> 0 ppt
+ * ==================================================================== */
+(function selfTest() {
+  const sgOf35 = rhoSeawater(35, 25) / rhoPureWater(25);
+  const sOfSG = salinityFromDensity(1.0264 * rhoPureWater(25), 25);
+  console.log("[self-test] SG(35ppt,25C) =", sgOf35.toFixed(4), "(expect ~1.0264)");
+  console.log("[self-test] S(SG 1.0264,25C) =", sOfSG.toFixed(2), "ppt (expect ~35.0)");
+})();
+</script>
+</body>
+</html>
