@@ -1,5 +1,7 @@
 # Salinity Calculator (GitHub Pages)
 
+[carlhammond.github.io/Git-Pages/salinity-calculator](https://carlhammond.github.io/Git-Pages/salinity-calculator)
+
 A static, browser-only replica of the n8n **"Salinity Calculator V2"** workflow
 (`n8n/Salinity Calculator/Salinity Calculator V2.json`), rebuilt for hosting on
 GitHub Pages and improved for hobby **reef aquarium** use.
