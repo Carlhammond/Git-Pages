@@ -372,6 +372,47 @@
   summary::marker { color: var(--color-accent); }
   details p { font-size: 12px; color: var(--color-text); line-height: 1.7; }
   details p strong { color: var(--color-header); }
+  /* Adjustment planner ---------------------------------------------- */
+  .adjust {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--color-divider);
+  }
+  .adjust h2 {
+    font-family: var(--font-readout);
+    font-size: 17px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-header);
+    margin: 0 0 14px;
+    text-align: center;
+  }
+  .adjust .row { margin-bottom: 14px; }
+  .adjust-result {
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--border-radius-input);
+    padding: 14px 12px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-text);
+  }
+  .adjust-result .big {
+    font-family: var(--font-readout);
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--color-accent);
+    line-height: 1.1;
+  }
+  .adjust-result .unit {
+    font-family: var(--font-readout);
+    font-size: 16px;
+    color: var(--color-subtext);
+    letter-spacing: 0.1em;
+  }
+  .adjust-result .warn { color: var(--color-warn); }
+  .adjust-result .bad { color: var(--color-bad); }
 </style>
 </head>
 <body>
@@ -469,6 +510,32 @@
 
     <div class="target-note" id="targetNote">
       Reef target: <strong>35&nbsp;ppt</strong> &middot; SG&nbsp;<strong>1.0264</strong> &middot; ~53&nbsp;mS/cm @ 25&nbsp;&deg;C
+    </div>
+
+    <div class="adjust" id="adjustBox">
+      <h2>Adjust to target</h2>
+      <div class="field">
+        <div class="seg" id="segAdjMode" role="group" aria-label="Adjustment method">
+          <button type="button" data-val="swap" class="active">Water change</button>
+          <button type="button" data-val="add">Top-up (add only)</button>
+        </div>
+        <div class="hint" id="adjModeHint">Remove some tank water, then replace it with the mix below.</div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="adjTank">Tank volume (L)</label>
+          <input type="number" id="adjTank" inputmode="decimal" step="1" value="260" />
+        </div>
+        <div class="field">
+          <label for="adjBatch">Mix volume (L)</label>
+          <input type="number" id="adjBatch" inputmode="decimal" step="1" value="25" />
+        </div>
+        <div class="field">
+          <label for="adjTarget">Target (ppt)</label>
+          <input type="number" id="adjTarget" inputmode="decimal" step="0.1" value="35" />
+        </div>
+      </div>
+      <div class="adjust-result" id="adjustResult"></div>
     </div>
 
     <details>
@@ -734,11 +801,87 @@ function render(r) {
       " for reef (" + (s - REEF_TARGET_PPT > 0 ? "+" : "") + (s - REEF_TARGET_PPT).toFixed(1) + " ppt)";
   }
 
+  lastSalinity = r.salinity;
+  updateAdjust();
+
   document.getElementById("inputCard").style.display = "none";
   const rc = document.getElementById("resultsCard");
   rc.style.display = "block";
   rc.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
+/* ====================================================================
+ * Adjustment planner: salinity of the mix water needed to bring the
+ * tank to target. Salt mass balance (salinity treated as linear).
+ *   swap: remove x litres, add x litres of mix -> volume unchanged
+ *         S_mix = S_tank + (S_target - S_tank) * V / x
+ *   add : add x litres of mix, nothing removed -> volume V + x
+ *         S_mix = (S_target * (V + x) - S_tank * V) / x
+ * ==================================================================== */
+let lastSalinity = null;
+state.adjMode = "swap";
+
+function sgFromSalinity25(S) { return rhoSeawater(S, 25) / rhoPureWater(25); }
+
+function updateAdjust() {
+  const box = document.getElementById("adjustResult");
+  if (lastSalinity === null) return;
+  const S = lastSalinity;
+  const V = parseFloat(document.getElementById("adjTank").value);
+  const x = parseFloat(document.getElementById("adjBatch").value);
+  const St = parseFloat(document.getElementById("adjTarget").value);
+
+  if (!(V > 0) || !(x > 0) || !isFinite(St) || St < 0) {
+    box.innerHTML = "Enter a tank volume, mix volume and target salinity.";
+    return;
+  }
+  if (Math.abs(S - St) < 0.05) {
+    box.innerHTML = "Already at target &mdash; no adjustment needed.";
+    return;
+  }
+  if (state.adjMode === "swap" && x > V) {
+    box.innerHTML = '<span class="bad">Mix volume cannot exceed the tank volume for a water change.</span>';
+    return;
+  }
+
+  const mix = state.adjMode === "swap"
+    ? S + (St - S) * V / x
+    : (St * (V + x) - S * V) / x;
+
+  let html;
+  if (mix < 0) {
+    // Even fresh water at this volume can't get there; find the volume that can.
+    const needed = state.adjMode === "swap"
+      ? V * (S - St) / S                 // swap in fresh water only
+      : V * (S - St) / St;               // add fresh water only
+    html = '<span class="bad">Not possible with ' + x + ' L &mdash; even fresh water isn\'t enough.</span><br />' +
+      'You would need about <strong>' + needed.toFixed(1) + ' L</strong> of fresh (0&nbsp;ppt) water ' +
+      (state.adjMode === "swap" ? "swapped in" : "added") + ".";
+  } else {
+    const verb = state.adjMode === "swap"
+      ? "Remove <strong>" + x + " L</strong> of tank water, then add <strong>" + x + " L</strong> of mix at:"
+      : "Add <strong>" + x + " L</strong> of mix at:";
+    html = verb +
+      '<div><span class="big">' + mix.toFixed(1) + '</span> <span class="unit">ppt</span></div>' +
+      "SG&nbsp;" + sgFromSalinity25(mix).toFixed(4) + " @ 25&nbsp;&deg;C" +
+      " &middot; ~" + conductivityAt25(mix).toFixed(1) + "&nbsp;mS/cm";
+    if (mix > 45) {
+      html += '<br /><span class="warn">That mix is much saltier than seawater &mdash; use a larger volume or make several smaller changes.</span>';
+    }
+    const finalV = state.adjMode === "swap" ? V : V + x;
+    html += '<br />Tank ends at ' + St.toFixed(1) + ' ppt in ' + finalV + ' L.';
+  }
+  box.innerHTML = html;
+}
+
+wireSegment("segAdjMode", "adjMode", () => {
+  document.getElementById("adjModeHint").textContent = state.adjMode === "swap"
+    ? "Remove some tank water, then replace it with the mix below."
+    : "Add the mix to the tank without removing any water first.";
+  updateAdjust();
+});
+["adjTank", "adjBatch", "adjTarget"].forEach((id) =>
+  document.getElementById(id).addEventListener("input", updateAdjust));
 
 /* ====================================================================
  * Events
