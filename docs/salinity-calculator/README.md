@@ -6,7 +6,7 @@ A static, browser-only replica of the n8n **"Salinity Calculator V2"** workflow
 (`n8n/Salinity Calculator/Salinity Calculator V2.json`), rebuilt for hosting on
 GitHub Pages and improved for hobby **reef aquarium** use.
 
-No server, no n8n instance and no network calls — everything runs in the
+No server, no n8n instance and no network calls - everything runs in the
 visitor's browser from a single `index.html`.
 
 ## Enabling GitHub Pages
@@ -25,10 +25,10 @@ visitor's browser from a single `index.html`.
 
 Inputs (mirrors the original n8n form):
 
-- **Observed reading** — specific gravity *or* ppt
-- **Observed temperature** — °C or °F
-- **Instrument** — hydrometer (temperature-corrected) or refractometer (ATC)
-- **Calibration temperature** — 25 °C / 20 °C / 60 °F
+- **Observed reading** - specific gravity *or* ppt
+- **Observed temperature** - °C or °F
+- **Instrument** - hydrometer (temperature-corrected) or refractometer (ATC)
+- **Calibration temperature** - 25 °C / 20 °C / 60 °F
 
 Outputs:
 
@@ -46,7 +46,7 @@ The original V2 workflow had a few issues for aquarium use:
 | Issue in V2 | Fix here |
 |---|---|
 | Displayed `ppt` used a crude `(SG − 1) × 1000 × 1.40` rule of thumb → reads **~37 ppt** at SG 1.0264 when the truth is **35 ppt**. | Salinity is solved from the full **EOS-80 / UNESCO 1981** seawater equation of state. SG 1.0264 → **35.0 ppt**. |
-| Temperature correction was a flat `0.0003 / °C` linear fudge. | The reading is converted to absolute density using the density of pure water at the **calibration temperature**, then salinity is solved at the **sample temperature** — proper physics, no magic constant. |
+| Temperature correction was a flat `0.0003 / °C` linear fudge. | The reading is converted to absolute density using the density of pure water at the **calibration temperature**, then salinity is solved at the **sample temperature** - proper physics, no magic constant. |
 | The accurate `psu` value was computed but **never shown** on the form. | Practical salinity (PSU/ppt) is the headline result. |
 | No reef context. | Targets, an in-range indicator, °F support, ppt entry, conductivity, and separate hydrometer vs refractometer handling. |
 
@@ -58,7 +58,7 @@ The original V2 workflow had a few issues for aquarium use:
 
 ### Accuracy notes
 
-- EOS-80 is valid 0–40 ppt, −2 to 40 °C — comfortably covering aquarium conditions.
+- EOS-80 is valid 0–40 ppt, −2 to 40 °C - comfortably covering aquarium conditions.
 - Conductivity is a local quadratic fit anchored to standard seawater
   (30/35/40 ppt → 46.1/53.1/60.0 mS/cm at 25 °C); treat it as approximate.
 - Hydrometer correction ignores glass thermal expansion (negligible, ~2.5×10⁻⁵ /°C).

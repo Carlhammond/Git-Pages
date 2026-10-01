@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
 <style>
   /* ------------------------------------------------------------------ *
-   * v1.1 — "Apex Fusion" inspired dark dashboard re-skin.              *
+   * v1.1 - "Apex Fusion" inspired dark dashboard re-skin.              *
    * Look-and-feel taken from SampleColours.png (Neptune Systems Apex   *
    * Fusion controller): charcoal panels, bright-orange instrument      *
    * readouts, dark top nav bar. All calculator logic is unchanged.     *
@@ -72,7 +72,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Top nav bar — mirrors the Apex Fusion header ------------------- */
+  /* Top nav bar - mirrors the Apex Fusion header ------------------- */
   .topbar {
     height: 54px;
     background: var(--color-nav);
@@ -549,7 +549,7 @@
         The reading is converted to an absolute water density, temperature-corrected
         using the density of pure water at your instrument's calibration temperature,
         then salinity is solved from the <strong>EOS-80 (UNESCO 1981)</strong> seawater
-        equation of state &mdash; the same model oceanographers use. Specific gravity is
+        equation of state - the same model oceanographers use. Specific gravity is
         reported on the 25&nbsp;&deg;C/25&nbsp;&deg;C basis used throughout the reef hobby
         (35&nbsp;ppt&nbsp;=&nbsp;SG&nbsp;1.0264). Conductivity is an approximation valid
         near natural-seawater strength.
@@ -561,7 +561,7 @@
 
   <div class="footer">
     We accept no responsibility should you choose to use this tool.<br />
-    For aquarium guidance only &mdash; not for laboratory use.
+    For aquarium guidance only - not for laboratory use.
   </div>
 </div>
 
@@ -842,7 +842,7 @@ function updateAdjust() {
     return;
   }
   if (Math.abs(S - St) < 0.05) {
-    box.innerHTML = "Already at target &mdash; no adjustment needed.";
+    box.innerHTML = "Already at target - no adjustment needed.";
     return;
   }
   if (state.adjMode === "swap" && x > V) {
@@ -860,7 +860,7 @@ function updateAdjust() {
     const needed = state.adjMode === "swap"
       ? V * (S - St) / S                 // swap in fresh water only
       : V * (S - St) / St;               // add fresh water only
-    html = '<span class="bad">Not possible with ' + x + ' L &mdash; even fresh water isn\'t enough.</span><br />' +
+    html = '<span class="bad">Not possible with ' + x + ' L - even fresh water isn\'t enough.</span><br />' +
       'You would need about <strong>' + needed.toFixed(1) + ' L</strong> of fresh (0&nbsp;ppt) water ' +
       (state.adjMode === "swap" ? "swapped in" : "added") + ".";
   } else {
@@ -877,7 +877,7 @@ function updateAdjust() {
         Math.round(perL * x) + " g</strong> for " + x + " L of mix.";
     }
     if (mix > 45) {
-      html += '<br /><span class="warn">That mix is much saltier than seawater &mdash; use a larger volume or make several smaller changes.</span>';
+      html += '<br /><span class="warn">That mix is much saltier than seawater - use a larger volume or make several smaller changes.</span>';
     }
     const finalV = state.adjMode === "swap" ? V : V + x;
     html += '<br />Tank ends at ' + St.toFixed(1) + ' ppt in ' + finalV + ' L.';
