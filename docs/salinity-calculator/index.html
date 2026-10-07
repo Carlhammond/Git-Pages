@@ -930,8 +930,6 @@ function renderReefloat(box, S, V, Vc, St, gPerL35) {
       "Use a larger container or a smaller change.</span>";
     return;
   }
-  const seq = (V * S + Vc * mix) / (V + Vc);
-  const cEnd = seq + (mix - seq) * Math.exp(-Q * k);
   let html = "Fill the Reefloat container with <strong>" + Vc + " L</strong> at:" +
     '<div><span class="big">' + mix.toFixed(1) + '</span> <span class="unit">ppt</span></div>' +
     "SG&nbsp;" + sgFromSalinity25(mix).toFixed(4) + " @ 25&nbsp;&deg;C" +
@@ -944,10 +942,7 @@ function renderReefloat(box, S, V, Vc, St, gPerL35) {
   if (mix > 45) {
     html += '<br /><span class="warn">That mix is much saltier than seawater - pump more volume through or make several smaller changes.</span>';
   }
-  html += "<br />After pumping " + Math.round(Q) + " L through (" + flow + " L/h for " + hours + " h), tank ends at " + St.toFixed(1) +
-    " ppt and the container at about " + cEnd.toFixed(1) + " ppt.";
-  html += "<br />Without the mix-back, a plain " + Vc + " L water change would need " +
-    (S + (St - S) * V / Vc).toFixed(1) + " ppt.";
+  html += "<br />After pumping " + Math.round(Q) + " L through, tank ends at " + St.toFixed(1) + " ppt.";
   box.innerHTML = html;
 }
 
