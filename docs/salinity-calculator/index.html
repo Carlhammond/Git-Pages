@@ -519,6 +519,7 @@
         <div class="seg" id="segAdjMode" role="group" aria-label="Adjustment method">
           <button type="button" data-val="swap" class="active">Water change</button>
           <button type="button" data-val="add">Top-up (add only)</button>
+          <button type="button" data-val="reefloat">Reefloat</button>
         </div>
         <div class="hint" id="adjModeHint">Remove some tank water, then replace it with the mix below.</div>
       </div>
@@ -535,6 +536,19 @@
           <label for="adjTarget">Target (ppt)</label>
           <input type="number" id="adjTarget" inputmode="decimal" step="0.1" value="35" />
         </div>
+      </div>
+      <div id="adjExchField" style="display:none;">
+        <div class="row">
+          <div class="field">
+            <label for="adjFlow">Pump flow (L/h)</label>
+            <input type="number" id="adjFlow" inputmode="decimal" step="1" value="100" />
+          </div>
+          <div class="field">
+            <label for="adjHours">Run time (hours)</label>
+            <input type="number" id="adjHours" inputmode="decimal" step="0.5" value="2" />
+          </div>
+        </div>
+        <div class="hint" style="margin-top:-8px;margin-bottom:18px;">Not sure of the flow? Time how long the pump takes to fill a 1 L jug (3600 &divide; seconds = L/h). Above roughly 50&nbsp;L/h over 2&nbsp;h the result barely changes.</div>
       </div>
       <div class="field">
         <label for="adjSalt">Salt mix: g per litre for 35 ppt</label>
@@ -846,6 +860,10 @@ function updateAdjust() {
     box.innerHTML = "Already at target - no adjustment needed.";
     return;
   }
+  if (state.adjMode === "reefloat") {
+    renderReefloat(box, S, V, x, St, gPerL35);
+    return;
+  }
   if (state.adjMode === "swap" && x > V) {
     box.innerHTML = '<span class="bad">Mix volume cannot exceed the tank volume for a water change.</span>';
     return;
@@ -886,13 +904,62 @@ function updateAdjust() {
   box.innerHTML = html;
 }
 
+/* Reefloat: sealed container (volume Vc, mix at Cm) pumps into the tank
+ * while an equal flow is drawn back from the tank into the container, so
+ * both volumes stay constant and each is assumed well mixed. With
+ * exchange flow Q the salinity difference decays exponentially:
+ *   Ct(Q) = Seq + (S - Seq) * exp(-Q * (1/V + 1/Vc))
+ *   Seq   = (V*S + Vc*Cm) / (V + Vc)
+ * Solving Ct(Q) = target for the mix salinity Cm, with f = 1 - exp(-Q*k):
+ *   Cm = S + (St - S) * (V + Vc) / (f * Vc)
+ */
+function renderReefloat(box, S, V, Vc, St, gPerL35) {
+  const flow = parseFloat(document.getElementById("adjFlow").value);
+  const hours = parseFloat(document.getElementById("adjHours").value);
+  const Q = flow * hours;
+  if (!(Q > 0)) {
+    box.innerHTML = "Enter the pump flow rate and run time.";
+    return;
+  }
+  const k = 1 / V + 1 / Vc;
+  const f = 1 - Math.exp(-Q * k);
+  const mix = S + (St - S) * (V + Vc) / (f * Vc);
+  if (mix < 0) {
+    box.innerHTML = '<span class="bad">Not possible - even fresh water in the container isn't enough. ' +
+      "Use a larger container or a smaller change.</span>";
+    return;
+  }
+  const seq = (V * S + Vc * mix) / (V + Vc);
+  const cEnd = seq + (mix - seq) * Math.exp(-Q * k);
+  let html = "Fill the Reefloat container with <strong>" + Vc + " L</strong> at:" +
+    '<div><span class="big">' + mix.toFixed(1) + '</span> <span class="unit">ppt</span></div>' +
+    "SG&nbsp;" + sgFromSalinity25(mix).toFixed(4) + " @ 25&nbsp;&deg;C" +
+    " &middot; ~" + conductivityAt25(mix).toFixed(1) + "&nbsp;mS/cm";
+  if (gPerL35 > 0) {
+    const perL = mix * gPerL35 / 35;
+    html += "<br />Salt: <strong>" + perL.toFixed(1) + " g/L</strong> &rarr; <strong>" +
+      Math.round(perL * Vc) + " g</strong> for " + Vc + " L of mix.";
+  }
+  if (mix > 45) {
+    html += '<br /><span class="warn">That mix is much saltier than seawater - pump more volume through or make several smaller changes.</span>';
+  }
+  html += "<br />After pumping " + Math.round(Q) + " L through (" + flow + " L/h for " + hours + " h), tank ends at " + St.toFixed(1) +
+    " ppt and the container at about " + cEnd.toFixed(1) + " ppt.";
+  html += "<br />Without the mix-back, a plain " + Vc + " L water change would need " +
+    (S + (St - S) * V / Vc).toFixed(1) + " ppt.";
+  box.innerHTML = html;
+}
+
 wireSegment("segAdjMode", "adjMode", () => {
-  document.getElementById("adjModeHint").textContent = state.adjMode === "swap"
-    ? "Remove some tank water, then replace it with the mix below."
-    : "Add the mix to the tank without removing any water first.";
+  document.getElementById("adjModeHint").textContent = {
+    swap: "Remove some tank water, then replace it with the mix below.",
+    add: "Add the mix to the tank without removing any water first.",
+    reefloat: "Sealed container pumps mix in while tank water is drawn back, so the two mix. Mix volume = container size."
+  }[state.adjMode];
+  document.getElementById("adjExchField").style.display = state.adjMode === "reefloat" ? "" : "none";
   updateAdjust();
 });
-["adjTank", "adjBatch", "adjTarget", "adjSalt"].forEach((id) =>
+["adjTank", "adjBatch", "adjTarget", "adjSalt", "adjFlow", "adjHours"].forEach((id) =>
   document.getElementById(id).addEventListener("input", updateAdjust));
 
 /* ====================================================================
