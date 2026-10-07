@@ -925,7 +925,7 @@ function renderReefloat(box, S, V, Vc, St, gPerL35) {
   const f = 1 - Math.exp(-Q * k);
   const mix = S + (St - S) * (V + Vc) / (f * Vc);
   if (mix < 0) {
-    box.innerHTML = '<span class="bad">Not possible - even fresh water in the container isn't enough. ' +
+    box.innerHTML = '<span class="bad">Not possible - even fresh water in the container isn&#39;t enough. ' +
       "Use a larger container or a smaller change.</span>";
     return;
   }
